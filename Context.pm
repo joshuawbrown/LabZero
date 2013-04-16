@@ -207,7 +207,26 @@ sub load {
 			sub {
 				if ($err{couchdb})             { fail("Fatal Error: $err{couchdb}"); }
 				if (! $config->{couchdb}{url}) { fail("Fatal Error: Missing couchdb / url setting"); }
-				unless ($couch_object)  { $couch_object = LabZero::Couch->new($config->{couchdb}{url}); }
+				unless ($couch_object)  { 
+
+###########################################
+#add in 8.30.12 kd to check for un/pw
+#original was *just* the else line
+#simply check is username not empty - 
+#the tag that on the front of the url
+					if($config->{couchdb}{username} ne ""){
+						my $turl = $config->{couchdb}{url};
+
+						$turl =~ s/http:\/\//http:\/\/$config->{couchdb}{username}:$config->{couchdb}{password}\@/;
+
+						$couch_object = LabZero::Couch->new($turl);
+					}
+					else{ 
+						$couch_object = LabZero::Couch->new($config->{couchdb}{url}); 
+					}
+###########################################
+
+				}
 				return $couch_object;
 			}
 		);

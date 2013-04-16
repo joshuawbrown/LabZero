@@ -53,6 +53,8 @@ use strict;
 use Data::Dumper;
 use Symbol qw(delete_package);
 
+use Encode;
+
 use LabZero::Fail;
 use LabZero::Tmojo::TemplateLoader;
 use LabZero::Tmojo::ExpressionLanguage;
@@ -192,7 +194,8 @@ sub call {
 	my $template = $self->prepare($template_id, %args);
 
 	# CALL MAIN
-	return $template->main();
+	my $output = $template->main();
+	return encode('utf8', $output);
 }
 
 sub call_with_container {
