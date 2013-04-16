@@ -1,0 +1,38 @@
+return {
+      
+  	mysql => {
+			url      => 'DBI:mysql:mydata',
+			username => 'foo',
+			password => 'bar',
+		},
+		
+		couchdb => {
+			url      => 'http://127.0.0.1:5984/',
+			username => 'user',
+			password => 'password',
+		},
+		
+		glog => {
+			glog_dir_path => '/home/zero/log/glog',
+		},
+		
+		msg_lite => {
+			socket_path => '/home/zero/var/msglite.socket',
+		},
+		
+		app => {
+			DemoApp => {
+				lib_root   => '/home/zero/app/DemoApp/Web',  # Where web handlers live
+				tmojo_root => '/home/zero/app/DemoApp/mojo', # Where tmojo docs live
+				app_prefix => 'app', # The URL space that this app responds to
+        couch_home => 'demoapp', # The home database for the user and session list, etc in couchdb
+			},
+		
+  };
+
+
+# This file is used by Context.pm for holding passwords and configuration.
+# To use "Context.pm" you need to add a line to your ENVIRONMENT that points
+# to this file. I use this in my profile:
+
+# export LABZERO_CONFIG=/home/zero/config/context.config
