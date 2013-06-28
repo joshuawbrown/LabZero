@@ -168,7 +168,8 @@ sub http_cookie {
 	my (%params) = @_;
 	
 	my $name    = $params{name} || freak("missing required parameter: name");
-	if (not defined($params{value}));
+	if (not defined($params{value})) { freak("missing required parameter: value"); }
+	my $value = $params{value};
 	my $expires = $params{expires};
 	my $domain  = $params{domain};
 	my $path    = $params{path} || '/';
