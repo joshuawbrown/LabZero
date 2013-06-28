@@ -41,6 +41,7 @@ sub retro_error_c64 {
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html lang="en">
 <head>
+	<meta charset="utf-8">
 	<title>Error $error_code - $error_message</title>
 	<style>
 body {
@@ -139,6 +140,7 @@ sub retro_error_apple2 {
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html lang="en">
 <head>
+	<meta charset="utf-8">
 	<title>Error $error_code - $error_message</title>
 <style>
 body {

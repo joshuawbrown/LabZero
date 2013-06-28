@@ -107,6 +107,24 @@ sub _check_id {
 };
 
 ###############
+### DB INFO ###
+###############
+
+sub get_db_info:method {
+
+	my ($self, $db) = @_;
+
+	_check_db($db);
+
+	my $doc = $self->couch_request(GET => $db);	
+	my $response = decode_json($doc);
+	
+	if ($response->{error}) { fail("Error Getting $db", $response); }
+	return $response;
+
+}
+
+###############
 ### GET DOC ###
 ###############
 
@@ -190,7 +208,7 @@ sub put_doc:method {
 	my $response = decode_json($result);
 	if ($response->{ok} and $response->{rev}) { return $response->{rev}; }
 	
-	# Auto-resolve conflicts
+	# fail or return on conflict
 	if ($response->{error} eq 'conflict') {
 		if ($conflict_ok) { return undef; }
 		fail("Error putting $db/$id", $response, $perl_doc);

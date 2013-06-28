@@ -80,11 +80,12 @@ my $last_mark = time();
 	my $request_limit = int($commands{max_requests}/2) + int(rand($commands{max_requests}/2));
 	
 	logger("STARTED ($$) - $start_log");
+	my $term_message;
 		
 	while (not $quit) {
 
 		# IN DEV MODE, IF WERE SITTING IDLE, OUTPUT TO THE LOGFILE TO KEEP TAIL ALIVE
-		if ($commands{dev_mode} and (time() - $last_mark) >= 110) {
+		if ($commands{dev_mode} and (time() - $last_mark) >= 3600) {
 			$last_mark = time();
 			logger('MARK');
 		}
@@ -102,13 +103,14 @@ my $last_mark = time();
 		# IF QUIT BECAME TRUE WHILE WE WERE WAITING, RE-QUEUE THE MESSAGE AND QUIT
 		if ($quit) {
 			$msglite->send($msglite_message);
+			$term_message = " - Worker expired, message re-queued";
 			last;
 		}
 		
 		# IN DEV MODE, RESTART IF WE ALREADY HANDLED A REQUEST
 		if ($commands{dev_mode} and ($request_counter > 0)) {
 			$msglite->send($msglite_message);
-			logger("RESTARTING ($$) for dev mode");
+			$term_message = " - Restarting for dev mode";
 			last;
 		}
 		
@@ -147,16 +149,27 @@ my $last_mark = time();
 		my $request_string = '-';
 		my $handler_request;
 		
+		my $error_handler = \&retro_error_c64;
+		
 		my ($status_code, $headers, $body) = eval {
 
-			# if the handler failed to load (earlier), just bail out here
-			if ($handler_failed) {
-				return ('500', ['Content-Type' => 'text/html'], retro_error_c64(500, 'Main Handler failed compliation (W101)', $commands{handler}));
-			}
-					
 			# Decode the JSON of the message body here for nice logging.
 			my $browser_request = decode_json($msglite_message->body);
 			$request_string = "$browser_request->{method} $browser_request->{url}";
+			
+			# Hack for returning very brief errors to non-browsers like curl
+			my $agent = $browser_request->{headers}{'User-Agent'};
+			if (($agent eq '') or (lc($agent) =~ m/curl/i)) {
+				$error_handler = sub {
+					my $stamp = strftime("%Y-%m-%d %H:%M:%S", localtime);
+					return "[$stamp] Error $_[0]: $_[1] \"$_[2]\"\n";
+				}
+			}
+
+			# if the handler failed to load (earlier), just bail out here
+			if ($handler_failed) {
+				return ('500', ['Content-Type' => 'text/html'], $error_handler->(500, 'Main Handler failed compliation (W101)', $commands{handler}));
+			}
 			
 			# Create and invoke the handler, and pass in the decoded json, as well as the original msglite request
 			my $return_body;
@@ -185,7 +198,7 @@ my $last_mark = time();
 				$notation = " - Handler '$commands{handler}' failed at runtime\n$@";
 				$status_code = '500';
 				$headers = ['Content-Type' => 'text/html'];
-				$body = retro_error_c64(500, 'Runtime Error (W102)', $request_string);
+				$body = $error_handler->(500, 'Runtime Error (W102)', $request_string);
 			}
 			
 			# Failed to generated HTTP status code
@@ -193,7 +206,7 @@ my $last_mark = time();
 				$notation = " - No HTTP status code from Handler '$commands{handler}'";
 				$status_code = '500';
 				$headers = ['Content-Type' => 'text/html'];
-				$body = retro_error_c64(500, 'No HTTP Status code returned! (W103)', $request_string);
+				$body = $error_handler->(500, 'No HTTP Status code returned! (W103)', $request_string);
 			}
 			
 			# Failed to generate a header
@@ -201,7 +214,7 @@ my $last_mark = time();
 				l$notation = " - No valid HTTP header from Handler '$commands{handler}'";
 				$status_code = '500';
 				$headers = ['Content-Type' => 'text/html'];
-				$body = retro_error_c64(500, 'No valid HTTP header returned! (W104)', $request_string);
+				$body = $error_handler->(500, 'No valid HTTP header returned! (W104)', $request_string);
 			}
 	
 			### Send the output back to nginx
@@ -239,7 +252,7 @@ my $last_mark = time();
 		
 	} # while (not $quit)
 	
-	logger("TERMINATED ($$)");
+	logger("TERMINATED ($$) $term_message");
 	
 }
 
@@ -484,9 +497,15 @@ sub http_send_file {
 
 sub http_send_file_accel {
 
-	my ($self, $path) = @_;
+	my ($self, $path, $filename) = @_;
 	
 	$self->http_header('X-Accel-Redirect' => $path);
+	
+	if ($filename) {
+		$self->http_header('Content-Type' => 'application/octet-stream');
+		$self->http_header('Content-Disposition' => "attachment; filename=\"$filename\"");
+	}
+	
 	$self->{content} = "X-Accel-Redirect $path\n";
 	$self->{result_code} = '100';
 	$self->{static} = 1;

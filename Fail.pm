@@ -60,6 +60,10 @@ eval $runtime_code;
 fling($@) if $@;
 
 
+flog("message")
+
+Prints the given message with the package name and line number. For succinct logging.
+
 
 =cut
 
@@ -67,7 +71,7 @@ fling($@) if $@;
 use strict;
 use base qw(Exporter);
 
-our @EXPORT = qw(fail freak fret fuss fling);
+our @EXPORT = qw(fail freak fret fuss fling flog f_whoami);
 our $DEBUG = 1;
 
 sub fail {
@@ -88,6 +92,22 @@ sub fuss {
 
 sub fling {
 	die LabZero::Error::Impl->new(1, 0, 1, @_);
+}
+
+sub flog {
+
+	my (undef, undef, $line) = caller(0);
+	my (undef, undef, undef, $func) = caller(1);
+	my ($package, $func_name) = $func =~ m/^(.+)\:\:(.+?)$/;
+	print ">$package> $func_name (line $line): ", $_[0], "\n";
+}
+
+sub f_whoami {
+
+	my (undef, undef, $line) = caller(0);
+	my (undef, undef, undef, $func) = caller(1);
+	my ($package, $func_name) = $func =~ m/^(.+)\:\:(.+?)$/;
+	return "$package/$func_name/$line";
 }
 
 package LabZero::Error::Impl;
