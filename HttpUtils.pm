@@ -41,7 +41,22 @@ our @EXPORT = qw(
 	ip_quad_to_int
 	http_get
 	http_post
+	escape_js
 );
+
+=head2 http_encode
+
+encodes a urlencoded string, replacing ' ' with ' '
+and non-ok characters with%XX with the provided hex value 
+
+=cut
+
+sub escape_js {
+	my ($value) = @_;
+	$value =~ s{(?<!\\)'}{\\'}g;
+	$value =~ s{<\/script>}{<' + '/script>}g;
+	return "'" . $value . "'";
+}
 
 =head2 http_encode
 
