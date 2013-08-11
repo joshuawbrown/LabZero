@@ -99,7 +99,12 @@ sub flog {
 	my (undef, undef, $line) = caller(0);
 	my (undef, undef, undef, $func) = caller(1);
 	my ($package, $func_name) = $func =~ m/^(.+)\:\:(.+?)$/;
-	print ">$package> $func_name (line $line): ", $_[0], "\n";
+	print ">$package> $func_name (line $line): ";
+	foreach my $clue (@_) {
+		if (ref($clue) ne '') { print Dumper($clue) }
+		else { print $clue; }
+	}
+	print "\n";
 }
 
 sub f_whoami {
