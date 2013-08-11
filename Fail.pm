@@ -16,6 +16,8 @@
 
 package LabZero::Fail;
 
+use Data::Dumper;
+
 =head1 LabZero::Fail
 
 This module provides vastly improved functions for error reporting.
