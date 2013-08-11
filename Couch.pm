@@ -99,12 +99,20 @@ sub _check_db {
 
 sub _check_id {
 
+	
 	my ($id) = @_;
 	unless($id =~ m/^([-_a-zA-Z0-9]+)$/) {
 		fail('ID ($id) required', "id=$id");
 	}
 
 };
+
+sub check_id:method {
+
+	my ($self, $id) = @_;
+	_check_id($id);
+	
+}
 
 ###############
 ### DB INFO ###
@@ -146,6 +154,33 @@ sub get_doc:method {
 	
 	# die if no id and missing not ok
 	fail("Error Getting $db/$id", $response); # otherwise, fail
+
+}
+
+################
+### GET DOCS ###
+################
+
+sub get_docs:method {
+
+	my ($self, $db, $ids) = @_;
+
+	_check_db($db);
+	
+	my $id_count = scalar(@$ids);
+	foreach my $id (@$ids) { _check_id($id) }
+
+	my $id_list = { 'keys' => $ids };
+	my $json = encode_json($id_list);
+	my $result = $self->couch_request(POST => "$db/_all_docs?include_docs=true", $json);
+
+	my $response = decode_json($result);
+
+	# return doc
+	if ($response->{total_rows}) { return $response; } # if we got a result
+	
+	# die if no id and missing not ok
+	fail("Error Getting $db bulk [$id_count keys]", $response); # otherwise, fail
 
 }
 
