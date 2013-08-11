@@ -233,6 +233,47 @@ sub load {
 	}
 	
 	#########################
+	### ADD AN AUTH ENTRY ###
+	#########################
+	
+	if (not ((ref($config->{auth}) eq 'HASH') and (scalar(keys %{$config->{auth}})))) {
+		$err{auth} = 'auth SUPPORT DISABLED. No entries were provided for the auth setting.';
+	}
+	
+	else {
+	
+		require LabZero::Auth;
+		my $auth_object; # Cache and share the auth object
+		
+		$this_context->define('auth',
+			sub {
+				if ($err{auth}) 		{ fail("Fatal Error: $err{couchdb}"); }
+				if ($err{couchdb})  { fail("Fatal Error: Auth Requires couch ($err{couchdb})"); }
+				if (! $config->{auth}{db_name})     { fail("Fatal Error: Missing auth / db_name setting"); }
+				if (! $config->{auth}{expired_url}) { fail("Fatal Error: Missing auth / expired_url setting"); }
+				
+				if (not $auth_object) {
+					my $couch = $this_context->couchdb();
+					my %params = (
+						couch         => $couch,
+						db_name       => $config->{auth}{db_name},
+						app_name      => $config->{auth}{app_name},
+						expired_url   => $config->{auth}{expired_url},
+		
+					);
+					if ($config->{auth}{timeout})       { $params{timeout} = $config->{auth}{timeout}; }
+					if ($config->{auth}{require_https}) { $params{require_https} = $config->{auth}{require_https}; }
+					
+					$auth_object = LabZero::Auth->new(%params);
+					return $auth_object;
+
+				}
+				
+			}
+		);
+	}
+	
+	#########################
 	### GLOG LITE FACTORY ###
 	#########################
 
