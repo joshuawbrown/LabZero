@@ -185,6 +185,31 @@ sub get_docs:method {
 }
 
 ################
+### GET DOCS ###
+################
+
+sub get_view_multi:method {
+
+	my ($self, $view, $ids) = @_;
+
+	unless($view) { fail("get_doc requires a view", "view=$view"); }
+	my $id_count = scalar(@$ids);
+
+	my $id_list = { 'keys' => $ids };
+	my $json = encode_json($id_list);
+	my $result = $self->couch_request(POST => $view, $json);
+
+	my $response = decode_json($result);
+
+	# return doc
+	if ($response->{rows}) { return $response->{rows}; } # if we got a result
+	
+	# die if no id and missing not ok
+	fail("Error Getting bulk view [$id_count keys]", $view, $response); # otherwise, fail
+
+}
+
+################
 ### GET VIEW ###
 ################
 
