@@ -243,10 +243,9 @@ sub load {
 	else {
 	
 		require LabZero::Auth;
-		my $auth_object; # Cache and share the auth object
+		our $auth_object; # Cache and share the auth object
 		
-		$this_context->define('auth',
-			sub {
+		$this_context->define('auth', sub {
 				if ($err{auth}) 		{ fail("Fatal Error: $err{couchdb}"); }
 				if ($err{couchdb})  { fail("Fatal Error: Auth Requires couch ($err{couchdb})"); }
 				if (! $config->{auth}{db_name})     { fail("Fatal Error: Missing auth / db_name setting"); }
@@ -265,12 +264,11 @@ sub load {
 					if ($config->{auth}{require_https}) { $params{require_https} = $config->{auth}{require_https}; }
 					
 					$auth_object = LabZero::Auth->new(%params);
-					return $auth_object;
-
 				}
 				
-			}
-		);
+				return $auth_object;
+				
+			});
 	}
 	
 	#########################
@@ -324,25 +322,6 @@ sub load {
 		});
 	
 	}
-			
-	##############################
-	### MSGLITE CLIENT FACTORY ###
-	##############################
-
-	if (not ((ref($config->{msg_lite}) eq 'HASH') and (scalar(keys %{$config->{msg_lite}})))) {
-		$err{msg_lite} = 'msg_lite SUPPORT DISABLED. No entries were provided for the msg_lite setting.';
-	}
-	
-	require LabZero::MsgLite;
-	
-	my $msglite_client = undef; # caches the msglite client so this becomes an efficient factory
-	$this_context->define('msg_lite', sub {
-		if ($err{msg_lite}) { fail("Fatal Error: $err{msg_lite}"); }
-		if (not defined $msglite_client) {
-			$msglite_client = LabZero::MsgLite->at_unix_socket($config->{msg_lite}{socket_path});
-		}		
-		return $msglite_client;
-	});
 	
 	#################################################
 	### GENERIC APP CONFIG KEYS WITH NICE FAILURE ###

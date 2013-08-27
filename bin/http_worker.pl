@@ -16,8 +16,8 @@ use POSIX qw(strftime);
 
 # use Devel::Leak;
 
-use LabZero::Context;
 use LabZero::Fail;
+use LabZero::MsgLite;
 use LabZero::RetroHTML;
 
 $| = 1;
@@ -33,10 +33,12 @@ $| = 1;
 my $usage = "Usage: http_worker.pl <commands>
 Valid Commands:
   handler=Foo::Bar (Perl Lib Path) * REQUIRED
+  msglite_socket=UNIX SOCKET PATH * REQUIRED
+  
+  msglite_inbox=X (Default: lpc.http_worker)
   worker_id=X (0-255, default 1)
   dev_mode=X (1 or 0, default 0)
   max_requests=X (1 to MAXINT, default 10000)
-  msglite_inbox=X (Default: lpc.http_worker)
 ";
 
 my %commands;
@@ -45,7 +47,6 @@ foreach my $arg (@ARGV) {
 }
 
 unless ($commands{max_requests})  { $commands{max_requests} = 10000; }
-unless ($commands{dev_mode})      { $commands{dev_mode} = 0; }
 unless ($commands{worker_id})     { $commands{worker_id} = 1; }
 unless ($commands{msglite_inbox}) { $commands{msglite_inbox} = 'lpc.http_worker'; }
 
@@ -53,12 +54,33 @@ unless ($commands{handler}) {
 	fail("You must specify a handler!", $usage);
 }
 
+unless ($commands{msglite_socket}) {
+	fail("You must specify a msglite_socket!", $usage);
+}
+
 my $start_log = join(' ', map { $_ . '=' . $commands{$_} } (keys %commands));
+
+### Try to load dev config
+my %dev_ips;
+if ($ENV{LABZERO_CONFIG} =~ m{^(.+)/context\.config$}) {
+	my $path = $1 . '/devs.txt';
+	if (-f $path) {
+		if (open(my $fh, $path)) {
+			while(<$fh>) {
+				if (m/(\d+\.\d+\.\d+\.\d+)/) {
+					$dev_ips{$1} = 1;
+				}
+			}
+			close($fh);
+		}
+	}
+}
+
+#### Connect to MSGLite
+my $msglite = LabZero::MsgLite->at_unix_socket($commands{msglite_socket});
 
 #### GO!
 
-my $context = LabZero::Context->load();
-my $msglite = $context->msg_lite();
 my $handler_failed;
 my $handler_loaded;
 
@@ -85,11 +107,10 @@ my $last_mark = time();
 	while (not $quit) {
 
 		# IN DEV MODE, IF WERE SITTING IDLE, OUTPUT TO THE LOGFILE TO KEEP TAIL ALIVE
-		if ($commands{dev_mode} and (time() - $last_mark) >= 3600) {
+		if ($commands{dev_mode} and (time() - $last_mark) >= 86400) {
 			$last_mark = time();
-			logger('MARK');
+			logger('STILL ALIVE');
 		}
-
 
 #   Devel::Leak memory debugging code
 #		my $handle; # apparently this doesn't need to be anything at all
@@ -108,9 +129,11 @@ my $last_mark = time();
 		}
 		
 		# IN DEV MODE, RESTART IF WE ALREADY HANDLED A REQUEST
-		if ($commands{dev_mode} and ($request_counter > 0)) {
+		# AND IF THIS DEV USER MATCHES THE DEV USER IP!
+		my ($remote_ip) = $msglite_message->{body} =~ m/"X-Real-Ip":"([\.0-9]+)"/;
+		if ($dev_ips{$remote_ip} and ($request_counter > 0)) {
 			$msglite->send($msglite_message);
-			$term_message = " - Restarting for dev mode";
+			$term_message = " - Restarting for dev (IP $remote_ip)";
 			last;
 		}
 		
@@ -325,14 +348,7 @@ sub execute_handler {
 	if (not $have_content_type) {
 		push @{ $self->{headers} }, 'Content-Type', 'text/html; charset=UTF-8';
 	}
-	
-# 	if (not $self->{static}) {
-# 		push @{ $self->{headers} }, 'Expires', 'Sat, 26 Jul 1997 05:00:00 GMT';
-# 		push @{ $self->{headers} }, 'Last_Modified', strftime('%a, %d %b %Y %H:%M:%S GMT', gmtime);
-# 		push @{ $self->{headers} }, 'Pragma', 'no-cache';
-# 		push @{ $self->{headers} }, 'Cache_Control', 'private, no-cache, no-store, must-revalidate, max-age=0, pre-check=0, post-check=0';
-# 	}
-	
+		
 	# Decide what to do with the body content
 	
 	if (ref($self->{content}) eq 'SCALAR') { $body_reference = $self->{content}; }
@@ -360,6 +376,19 @@ sub get_http_body {
 	
 	# print "^ ", length($self->{http_body}), "\n";
 	return $self->{http_body};
+
+}
+
+### my $post = $request->retrieve_post()
+### Get the post from msglite, and return it
+### or return the cached version
+
+sub ajax {
+	
+	my ($self) = @_;
+	
+	if ($self->{browser_request}{headers}{'X-Requested-With'} eq 'XMLHttpRequest') { return 1; }
+	return undef;
 
 }
 
