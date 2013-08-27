@@ -106,7 +106,7 @@ sub _check_id {
 
 	
 	my ($id) = @_;
-	unless($id =~ m/^([-_a-zA-Z0-9]+)$/) {
+	unless($id =~ m/^([-_a-zA-Z0-9\@\.\+]+)$/) {
 		fail('ID ($id) required', "id=$id");
 	}
 
