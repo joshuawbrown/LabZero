@@ -30,6 +30,11 @@ use POSIX;
 my $base62 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 my $epoch = 5333333333;
 
+use strict;
+use base qw(Exporter);
+
+our @EXPORT = qw(unique_keys unique_field);
+
 ####################
 #### CONSTRUCTOR ###
 ####################
@@ -114,6 +119,40 @@ sub check_id:method {
 	
 }
 
+
+sub unique_keys {
+	
+	my %hash = map { $_ => 1 } @_;
+	my @keys;
+	foreach my $key (keys %hash) {
+		if ($key ne '') { push @keys, $key; }
+	}
+	return @keys;
+
+}
+
+sub unique_field {
+	
+	my ($fieldname, $rows) = @_;
+	
+	if (ref($rows) ne 'ARRAY') { fail("An array ref is required for param 2", ref($rows)); }
+	my %hash;
+	my @unique_keys; # Preserve order
+	foreach my $row (@$rows) {
+		my $value;
+		if (exists($row->{$fieldname})) { $value = $row->{$fieldname}; }
+	  elsif ($row->{doc} and $row->{doc}{$fieldname}) { $value = $row->{doc}{$fieldname}; }
+	  if (($value ne '') and not $hash{$value}) {
+	  	push @unique_keys, $value;
+	  	$hash{$value} = 1;
+	  }
+	}
+
+	return @unique_keys;
+
+}
+
+
 ###############
 ### DB INFO ###
 ###############
@@ -167,6 +206,8 @@ sub get_docs:method {
 
 	_check_db($db);
 	
+	if (ref($ids) ne 'ARRAY') { fail("An array ref is required for param 2", ref($ids)); }
+	
 	my $id_count = scalar(@$ids);
 	foreach my $id (@$ids) { _check_id($id) }
 
@@ -176,8 +217,11 @@ sub get_docs:method {
 
 	my $response = decode_json($result);
 
-	# return doc
-	if ($response->{total_rows}) { return $response; } # if we got a result
+	# return doc if we got a result
+	if ($response->{total_rows}) {
+		my @docs = map { $_->{doc} } (@{$response->{rows}});
+		return \@docs;
+	}
 	
 	# die if no id and missing not ok
 	fail("Error Getting $db bulk [$id_count keys]", $response); # otherwise, fail
@@ -202,7 +246,26 @@ sub get_view_multi:method {
 	my $response = decode_json($result);
 
 	# return doc
-	if ($response->{rows}) { return $response->{rows}; } # if we got a result
+	if ($response->{rows}) {
+	
+		# Return all the response rows if no docs
+		if (not $response->{rows}[0]{doc}) {
+			my @docs = map { { '_key' => $_->{key}, '_value' => $_->{value}, } } (@{ $response->{rows} });
+			return \@docs;
+		}
+	
+		# Or, slup up the docs as well, if they are there
+		my @docs;
+		foreach my $row (@{ $response->{rows} }) {
+			my $doc = $row->{doc};
+			$doc->{'_key'} = $row->{key};
+			$doc->{'_value'} = $row->{value};
+			unshift @docs, $doc;
+		}
+		
+		return \@docs;
+		
+	} # if we got a result
 	
 	# die if no id and missing not ok
 	fail("Error Getting bulk view [$id_count keys]", $view, $response); # otherwise, fail
@@ -222,7 +285,26 @@ sub get_view:method {
 	my $doc = $self->couch_request(GET => $view);	
 	my $response = decode_json($doc);
 	
-	return $response;
+	if (not $response->{rows}) { fail("Error Getting view", $view, $response); }
+	
+	# Return an empty array if there was nothing
+	if (not scalar(@{ $response->{rows} })) { return $response->{rows}; }
+	
+	# Return all the response rows if no docs
+	if (not $response->{rows}[0]{doc}) {
+		my @docs = map { { '_key' => $_->{key}, '_value' => $_->{value}, } } (@{ $response->{rows} });
+		return \@docs;
+	}
+
+	# Or, slup up the docs as well, if they are there
+	my @docs;
+	foreach my $row (@{ $response->{rows} }) {
+		my $doc = $row->{doc};
+		$doc->{'_key'} = $row->{key};
+		$doc->{'_value'} = $row->{value};
+		unshift @docs, $doc;
+	}
+	return \@docs;
 
 }
 
@@ -232,14 +314,17 @@ sub get_view:method {
 
 sub new_doc:method {
 
-	my ($self, $db, $perl_doc) = @_;
+	my ($self, $db, $perl_doc, %params) = @_;
 	
 	_check_db($db);
 	unless(ref($perl_doc) eq 'HASH') { fail("new_doc requires a HASHREF of data"); }
 	
 	my $json = encode_json($perl_doc);
 	my $id = $perl_doc->{'_id'} || $self->next_id();
-	my $result = $self->couch_request(PUT => "$db/$id", $json);
+	
+	my $url = "$db/$id";
+	if ($params{batch}) { $url .= "?batch=ok"; }
+	my $result = $self->couch_request(PUT => $url, $json, %params);
 	
 	my $response = decode_json($result);
 	if ($response->{ok} and $response->{id}) { return $response->{id}; }
@@ -290,7 +375,7 @@ sub update_doc:method {
 	_check_id($id);
 	unless(ref($code_ref) eq 'CODE') { fail("update_doc requires a code ref!"); }
 
-	for my $tries (1..100) {
+	for my $tries (1..50000) {
 	
 		# load the document
 		my $doc = $self->couch_request(GET => $db . '/' . $id);	
@@ -314,7 +399,7 @@ sub update_doc:method {
 		
 		if ($response->{ok} and $response->{id}) {
 			$response->{updated_doc} = $perl_doc;
-			return $response->{id};
+			return $response;
 		}
 		
 		# TRY AGAIN
