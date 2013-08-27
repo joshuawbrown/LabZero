@@ -21,7 +21,7 @@ use strict;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
-	fmt_comma
+	fmt_comma fmt_comma_zero
 );
 
 
@@ -31,6 +31,17 @@ sub fmt_comma {
 	
 	my $result = sprintf("\%0.0f", $number);
 	while ($result =~ s/(\d)(\d\d\d)\b/$1,$2/) {}
+	return $result;
+
+}
+
+sub fmt_comma_zero {
+
+	my ($number, $placeholder) = @_;
+	
+	my $result = sprintf("\%0.0f", $number);
+	while ($result =~ s/(\d)(\d\d\d)\b/$1,$2/) {}
+	if ($result == 0) { return $placeholder; }
 	return $result;
 
 }
