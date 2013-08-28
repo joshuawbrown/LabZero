@@ -60,7 +60,7 @@ unless ($commands{msglite_socket}) {
 
 my $start_log = join(' ', map { $_ . '=' . $commands{$_} } (keys %commands));
 
-### Try to load dev config
+### Try to load devs config
 my %dev_ips;
 if ($ENV{LABZERO_CONFIG} =~ m{^(.+)/context\.config$}) {
 	my $path = $1 . '/devs.txt';
@@ -131,7 +131,9 @@ my $last_mark = time();
 		# IN DEV MODE, RESTART IF WE ALREADY HANDLED A REQUEST
 		# AND IF THIS DEV USER MATCHES THE DEV USER IP!
 		my ($remote_ip) = $msglite_message->{body} =~ m/"X-Real-Ip":"([\.0-9]+)"/;
-		if ($dev_ips{$remote_ip} and ($request_counter > 0)) {
+		my $is_dev = $dev_ips{$remote_ip};
+		
+		if ($is_dev and ($request_counter > 0)) {
 			$msglite->send($msglite_message);
 			$term_message = " - Restarting for dev (IP $remote_ip)";
 			last;
@@ -172,7 +174,10 @@ my $last_mark = time();
 		my $request_string = '-';
 		my $handler_request;
 		
-		my $error_handler = \&retro_error_c64;
+		my $error_handler = sub {
+			my $stamp = strftime("%Y-%m-%d %H:%M:%S", localtime);
+			return "[$stamp] Error $_[0]: $_[1] \"$_[2]\"\n";
+		};
 		
 		my ($status_code, $headers, $body) = eval {
 
@@ -182,12 +187,7 @@ my $last_mark = time();
 			
 			# Hack for returning very brief errors to non-browsers like curl
 			my $agent = $browser_request->{headers}{'User-Agent'};
-			if (($agent eq '') or (lc($agent) =~ m/curl/i)) {
-				$error_handler = sub {
-					my $stamp = strftime("%Y-%m-%d %H:%M:%S", localtime);
-					return "[$stamp] Error $_[0]: $_[1] \"$_[2]\"\n";
-				}
-			}
+			$browser_request->{auth_developer} = $is_dev;
 
 			# if the handler failed to load (earlier), just bail out here
 			if ($handler_failed) {
