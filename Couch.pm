@@ -102,21 +102,12 @@ sub _check_db {
 
 };
 
-sub _check_id {
+sub check_id:method {
 
-	
 	my ($id) = @_;
 	unless($id =~ m/^([-_a-zA-Z0-9\@\.\+]+)$/) {
 		fail('ID ($id) required', "id=$id");
-	}
-
-};
-
-sub check_id:method {
-
-	my ($self, $id) = @_;
-	_check_id($id);
-	
+	}	
 }
 
 
@@ -180,7 +171,6 @@ sub get_doc:method {
 	my ($self, $db, $id, $missing_ok) = @_;
 
 	_check_db($db);
-	_check_id($id);
 
 	my $doc = $self->couch_request(GET => $db . '/' . $id);	
 	my $response = decode_json($doc);
@@ -209,7 +199,6 @@ sub get_docs:method {
 	if (ref($ids) ne 'ARRAY') { fail("An array ref is required for param 2", ref($ids)); }
 	
 	my $id_count = scalar(@$ids);
-	foreach my $id (@$ids) { _check_id($id) }
 
 	my $id_list = { 'keys' => $ids };
 	my $json = encode_json($id_list);
@@ -372,7 +361,6 @@ sub update_doc:method {
 	my ($self, $db, $id, $code_ref) = @_;
 
 	_check_db($db);
-	_check_id($id);
 	unless(ref($code_ref) eq 'CODE') { fail("update_doc requires a code ref!"); }
 
 	for my $tries (1..50000) {
@@ -423,7 +411,6 @@ sub delete_doc:method {
 	my ($self, $db, $id, $revision, $conflict_ok) = @_;
 
 	_check_db($db);
-	_check_id($id);
 	unless($revision) { fail("delete_doc requires a revision"); }
 
 	my $response = $self->couch_request(DELETE => $db . '/' . $id . '?rev=' . $revision);
