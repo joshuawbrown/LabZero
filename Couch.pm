@@ -334,13 +334,13 @@ sub put_doc:method {
 	unless(ref($perl_doc) eq 'HASH') { fail("save_doc requires a HASHREF of data"); }
 	
 	my $id = $perl_doc->{'_id'};
-	unless ($id) { fail("save_doc requires adoc with an _id", $perl_doc); }
+	unless ($id) { fail("save_doc requires a doc with an _id", $perl_doc); }
 
 	my $json = encode_json($perl_doc);
 	my $result = $self->couch_request(PUT => "$db/$id", $json);
 
 	my $response = decode_json($result);
-	if ($response->{ok} and $response->{rev}) { return $response->{rev}; }
+	if ($response->{ok}) { return $response; }
 	
 	# fail or return on conflict
 	if ($response->{error} eq 'conflict') {
@@ -415,7 +415,7 @@ sub delete_doc:method {
 
 	my $response = $self->couch_request(DELETE => $db . '/' . $id . '?rev=' . $revision);
 
-	if ($response->{ok} and $response->{rev}) { return $response->{rev}; }
+	if ($response->{ok}) { return $response; }
 	
 	# Auto-resolve conflicts
 	if ($response->{error} eq 'conflict') {
