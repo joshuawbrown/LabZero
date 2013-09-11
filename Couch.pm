@@ -402,6 +402,30 @@ sub update_doc:method {
 	
 }
 
+###################
+### UPDATE DOCS ###
+###################
+
+sub update_docs:method {
+
+	my ($self, $db, $updates) = @_;
+
+	_check_db($db);
+	
+	if (ref($updates) ne 'ARRAY') { fail("An array ref is required for param 2", ref($updates)); }
+	
+	my $id_count = scalar(@$updates);
+
+	my $update_list = { 'docs' => $updates };
+	my $json = encode_json($update_list);
+	my $result = $self->couch_request(POST => "$db/_bulk_docs", $json);
+
+	my $response = decode_json($result);
+
+	return $response;
+
+}
+
 ##################
 ### DELETE DOC ###
 ##################
