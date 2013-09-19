@@ -181,10 +181,26 @@ sub load {
 
 	# Good to go, config sql. Just a stub for now
 	else {
+	
+		require LabZero::MySql;
+		our $mysql_object; # Cache and share the sql connection
+	
 		$this_context->define('mysql',
 			sub {
 				if ($err{mysql}) { fail("Fatal Error: $err{mysql}"); }
-				fail('This is only a stub. mySQL is not supported yet. Edit line ' . __LINE__ . ' of ' . __PACKAGE__ . ' to add it!');
+				
+				# make a new SLQ object if needed
+				unless ($mysql_object) {
+					# Currently in lazy mode--we should check the individual params first. 
+					$mysql_object = LabZero::MySql->new(
+						$config->{mysql}{url},
+						$config->{mysql}{username},
+						$config->{mysql}{password},
+					);
+				}
+				
+				return $mysql_object;
+				
 			}
 		);
 	}

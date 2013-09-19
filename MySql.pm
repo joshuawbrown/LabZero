@@ -676,7 +676,6 @@ sub insert_any:method {
 	
 }
 
-
 =head2 insert()
 
 Do a regular insert on a table with an auto-update id
