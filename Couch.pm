@@ -291,7 +291,7 @@ sub get_view:method {
 		my $doc = $row->{doc};
 		$doc->{'_key'} = $row->{key};
 		$doc->{'_value'} = $row->{value};
-		unshift @docs, $doc;
+		push @docs, $doc;
 	}
 	return \@docs;
 
