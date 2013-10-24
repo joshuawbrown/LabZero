@@ -25,6 +25,8 @@ use POSIX qw(strftime);
 use Time::HiRes;
 use LWP::UserAgent;
 use HTTP::Request;
+use JSON;
+use HTML::Entities;
 
 use LabZero::Fail;
 
@@ -42,12 +44,14 @@ our @EXPORT = qw(
 	http_get
 	http_post
 	escape_js
+	safe_json
+	safe_html
+	decode_entities
 );
 
-=head2 http_encode
+=head2 escape_js
 
-encodes a urlencoded string, replacing ' ' with ' '
-and non-ok characters with%XX with the provided hex value 
+ESCAPES a value into a sing-quoted javascript string
 
 =cut
 
@@ -57,6 +61,70 @@ sub escape_js {
 	$value =~ s{<\/script>}{<' + '/script>}g;
 	return "'" . $value . "'";
 }
+
+=head2 safe_json
+
+Encodes the given data as json, then escapes it to make it safe to embed in html.
+
+=cut
+
+sub safe_json {
+	
+	my $json = encode_json($_[0]);
+	$json =~ s{< *script *>}{<" + "script>}gi;
+	$json =~ s{< */ *script *>}{<" + "/script>}gi;
+	return $json;
+}
+
+=head2 safe_html
+
+Encodes html entities and script tags all scalars
+within the given data structure to make sure it
+can but output as html safely. 
+
+WARNING: Recursive. IS Not safe for self-referencing structures!
+
+=cut
+
+sub safe_html {
+	
+	# Don't harm simple scalars!
+	if (ref($_[0]) eq '') {
+		return encode_entities($_[0]);
+	}
+	
+	# but process non-scalars in a possibly destructive manner
+	_safe_entities($_[0]);
+	return $_[0];
+	
+}
+
+sub _safe_entities {
+
+	my $type = ref($_[0]);
+	
+	# Modify scalars
+	if ($type eq '') {
+		my $encoded = encode_entities($_[0]);
+		if ($encoded ne $_[0]) { $_[0] = $encoded; flog("modified $_[0]"); }
+	}
+
+	# Iterate over arrays
+	elsif ($type eq 'ARRAY') {
+		map { _safe_entities($_) } @{ $_[0] };
+	}
+	
+	# Iterate over hashes
+	elsif ($type eq 'HASH') {
+		map { _safe_entities($_[0]{$_}) } keys %{ $_[0] };
+	}
+	
+	# ignore everything else (objects, etc)
+	else { return; }
+
+}
+
+sub decode_entities { HTML::Entities::decode_entities(@_); }
 
 =head2 http_encode
 

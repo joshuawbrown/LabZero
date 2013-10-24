@@ -52,6 +52,7 @@ Will Conant <will@lab-01.com>
 use strict;
 use Data::Dumper;
 use Symbol qw(delete_package);
+use HTML::Entities;
 
 use Encode;
 
@@ -71,7 +72,7 @@ sub new {
 	elsif (not defined $args{template_loader}) {
 		$args{template_loader} = LabZero::Tmojo::TemplateLoader->new($ENV{TMOJO_TEMPLATE_DIR});
 	}
-	
+		
 	%args = (
 		context_path => '',
 		
@@ -270,23 +271,13 @@ sub parse_template {
 		INIT
 		METHOD
 		PERL
+		RAW
 		MERGE_PERL
 		CAPTURE_PERL
 		FILTER_PERL
 		REGEX
 		NOP
 		TAG_STYLE
-		MERGE
-		EXEC
-		SET
-		IF
-		ELSIF
-		ELSE
-		WHILE
-		FOREACH
-		END
-		CAPTURE
-		FILTER
 		ISA
 		CONTAINER
 		RETURN
@@ -320,24 +311,8 @@ sub parse_template {
 		
 		'NOP'        => [0, 0],
 		
-		'MERGE'      => [0, 0],
 		'EXEC'       => [1, 0],
-		'SET'        => [1, 0],
-		'RETURN'     => [1, 0],
-		
-		'IF'         => [1, 0],
-		'ELSIF'      => [1, 0],
-		'ELSE'       => [1, 0],
-		'WHILE'      => [1, 0],
-		'FOREACH'    => [1, 0],
-		'END'        => [1, 0],
-		
-		'CAPTURE'    => [1, 2],
-		'/CAPTURE'   => [2, 0],
-		
-		'FILTER'     => [0, 0],
-		'/FILTER'    => [0, 0],
-		
+				
 		'ISA'        => [1, 0],
 		'CONTAINER'  => [1, 0],
 	);
@@ -865,9 +840,27 @@ sub compile_template {
 		
 		elsif ($tag->{type} eq 'MERGE_PERL') {
 			
-			if ($restricted) {
-				die "invalid tag '$tag->{text}' in template '$template_id' starting at line $tag->{start_line}";
+			# FORMAT THE PERL
+			my $source = "\t\$Result .= HTML::Entities::encode_entities(";
+			
+			my @lines = split /\n/, $tag->{text};
+			
+			while ($_ = shift @lines) {
+				$source .= $_;
+				if (not @lines) {
+					$source .= ");\n";
+				}
 			}
+			
+			$methods{$cur_method} .= $format_perl->($source, $tag->{start_line});
+		}
+		
+		# MERGE_PERL TAG
+		# ---------------------------------
+		
+		elsif ($tag->{type} eq 'RAW') {
+			
+			# merge in raw perl, dont encode entities
 			
 			# FORMAT THE PERL
 			my $source = "\t\$Result .= (";
@@ -976,234 +969,7 @@ sub compile_template {
 			
 			$methods{$cur_method} .= $format_perl->("\t\$Result =~ $regex; \$ResultStack[-2] .= \$Result; pop(\@ResultStack); local \*Result = \\\$ResultStack[-1];\n", $regex_line);
 		}
-		
-		# MERGE TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'MERGE') {
 			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-			
-			# COMPILE IT TO PERL
-			$methods{$cur_method} .= $format_perl->("\t\$Result .= (" . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ");\n", $tag->{start_line});
-		}
-		
-		# EXEC TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'EXEC') {
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-									
-			# COMPILE IT TO PERL
-			$methods{$cur_method} .= $format_perl->("\t" . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ";\n", $tag->{start_line});
-		}
-		
-		# SET TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'SET') {
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-			
-			# MAKE SURE WE GOT A SET EXPRESSION
-			if ($parsed_expr->{type} ne 'opr' or $parsed_expr->{opr} ne '=') {
-				die "expected '=' in SET tag in $template_id on line $tag->{start_line}";
-			}
-						
-			# COMPILE IT TO PERL
-			$methods{$cur_method} .= $format_perl->("\t" . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ";\n", $tag->{start_line});
-		}
-		
-		# RETURN TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'RETURN') {
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-									
-			# COMPILE IT TO PERL
-			$methods{$cur_method} .= $format_perl->("\treturn " . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ";\n", $tag->{start_line});
-		}
-		
-		# IF TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'IF') {
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-			
-			# COMPILE TO PERL
-			$methods{$cur_method} .= $format_perl->("\tif (" . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ") {\n", $tag->{start_line});
-			
-			# PUSH IT ON THE STACK
-			push @stack, 'IF';			
-		}
-		
-		# ELSIF TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'ELSIF') {
-			
-			if ($stack[-1] ne 'IF') {
-				die "unexpected ELSIF tag (no opening IF tag) in $template_id on line $tag->{start_line}";
-			}
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-			
-			# COMPILE TO PERL
-			$methods{$cur_method} .= $format_perl->("\t} elsif (" . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ") {\n", $tag->{start_line});
-		}
-		
-		# ELSE TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'ELSE') {
-			
-			if ($stack[-1] ne 'IF') {
-				die "unexpected ELSE tag (no opening IF tag) in $template_id on line $tag->{start_line}";
-			}
-			
-			$methods{$cur_method} .= $format_perl->("\t} else {\n", $tag->{start_line});
-		}
-		
-		# WHILE TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'WHILE') {
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($tag->{text}, $template_id, $tag->{start_line});
-			
-			# COMPILE TO PERL
-			$methods{$cur_method} .= $format_perl->("\twhile (" . el_compile($parsed_expr, $template_id, $tag->{start_line}) . ") {\n", $tag->{start_line});
-			
-			# PUSH IT ON THE STACK
-			push @stack, 'WHILE';			
-		}
-		
-		# FOREACH TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'FOREACH') {
-			
-			# PARSE THE EXPRESSION
-			my ($var_expr, $expr_src) = el_parse($tag->{text}, $template_id, $tag->{start_line});
-			
-			# MAKE SURE WE GOT A VAR EXPRESSION
-			if ($var_expr->{type} ne 'variable') {
-				die "expected variable in FOREACH tag in $template_id on line $tag->{start_line}";
-			}
-			
-			# LOOK FOR THE 'in' PART
-			if ($expr_src !~ s/^\s*in\b//) {
-				die "expected 'in' in FOREACH tag in $template_id on line $tag->{start_line}";
-			}
-			
-			# GRAB THE LIST EXPRESSION
-			my $list_expr = el_parse($expr_src, $template_id, $tag->{start_line});
-			
-			# COMPILE TO PERL
-			my $var_compiled = el_compile($var_expr, $template_id, $tag->{start_line});
-			
-			# THIS IS LAME, BUT IT WORKS
-			$var_compiled =~ s/el_lookup\(/el_set\(\$_foreach_item, /;
-			
-			my $list_compiled = el_compile($list_expr, $template_id, $tag->{start_line});
-			
-			$methods{$cur_method} .= $format_perl->("\tforeach my \$_foreach_item (\@{el_foreach_array($list_compiled)}) {\n", $tag->{start_line});
-			$methods{$cur_method} .= $format_perl->("\t\t$var_compiled;\n", $tag->{start_line});
-			
-			# PUSH IT ON THE STACK
-			push @stack, 'FOREACH';			
-		}
-		
-		# END TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'END') {
-			
-			if ($stack[-1] eq 'IF' or $stack[-1] eq 'WHILE' or $stack[-1] eq 'FOREACH') {
-				$methods{$cur_method} .= $format_perl->("\t}\n", $tag->{start_line});
-				pop @stack;
-			}
-			else {
-				die "unexpected END tag in $template_id on line $tag->{start_line}";
-			}
-		}
-		
-		# CAPTURE TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'CAPTURE') {
-						
-			push @stack, 'CAPTURE';
-			push @stack_details, $tag->{text};
-			push @stack_lines, $tag->{start_line};
-			
-			$methods{$cur_method} .= "\tpush(\@ResultStack, ''); local \*Result = \\\$ResultStack[-1];\n";
-		}
-		
-		# /CAPTURE TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq '/CAPTURE') {
-			
-			if (pop(@stack) ne 'CAPTURE') {
-				die "unexpected /CAPTURE tag in $template_id starting at line $tag->{start_line}";
-			}
-			
-			my $capture_lvalue = pop @stack_details;
-			my $capture_line = pop @stack_lines;
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse("$capture_lvalue = \$Result", $template_id, $capture_line);
-			
-			# COMPILE THE EXPRESSION
-			my $compiled_expr = el_compile($parsed_expr, $template_id, $capture_line);
-			
-			$methods{$cur_method} .= $format_perl->("\t$compiled_expr; pop(\@ResultStack); local \*Result = \\\$ResultStack[-1];\n", $capture_line);
-		}
-		
-		# FILTER TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq 'FILTER') {
-			
-			push @stack, 'FILTER';
-			push @stack_details, $tag->{text};
-			push @stack_lines, $tag->{start_line};
-			
-			$methods{$cur_method} .= "\tpush(\@ResultStack, ''); local \*Result = \\\$ResultStack[-1];\n";
-		}
-		
-		# /FILTER TAG
-		# ---------------------------------
-		
-		elsif ($tag->{type} eq '/FILTER') {
-			
-			if (pop(@stack) ne 'FILTER') {
-				die "unexpected /FILTER tag in $template_id starting at line $tag->{start_line}";
-			}
-			
-			my $filter_code = pop @stack_details;
-			my $filter_line = pop @stack_lines;
-			
-			# PARSE THE EXPRESSION
-			my $parsed_expr = el_parse($filter_code, $template_id, $filter_line);
-			
-			# COMPILE THE EXPRESSION
-			my $compiled_expr = el_compile($parsed_expr, $template_id, $filter_line);
-			
-			$methods{$cur_method} .= $format_perl->("\t\$ResultStack[-2] .= ($compiled_expr); pop(\@ResultStack); local \*Result = \\\$ResultStack[-1];\n", $filter_line);
-		}
-		
 		# TAG_STYLE TAG (just ignore these
 		# ---------------------------------
 		
