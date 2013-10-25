@@ -70,6 +70,8 @@ Encodes the given data as json, then escapes it to make it safe to embed in html
 
 sub safe_json {
 	
+	if (not $_[0]) { return '{}'; }
+	
 	my $json = encode_json($_[0]);
 	$json =~ s{< *script *>}{<" + "script>}gi;
 	$json =~ s{< */ *script *>}{<" + "/script>}gi;
