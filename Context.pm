@@ -225,11 +225,7 @@ sub load {
 				if (! $config->{couchdb}{url}) { fail("Fatal Error: Missing couchdb / url setting"); }
 				unless ($couch_object)  { 
 
-###########################################
-#add in 8.30.12 kd to check for un/pw
-#original was *just* the else line
-#simply check is username not empty - 
-#the tag that on the front of the url
+
 					if($config->{couchdb}{username} ne ""){
 						my $turl = $config->{couchdb}{url};
 
@@ -240,7 +236,6 @@ sub load {
 					else{ 
 						$couch_object = LabZero::Couch->new($config->{couchdb}{url}); 
 					}
-###########################################
 
 				}
 				return $couch_object;
@@ -299,7 +294,6 @@ sub load {
 		$err{glog} = "GLOG SUPPORT DISABLED. No value was provided for 'glog:glog_dir_path'.";
 	}
 
-	# Good to go, glog. Just a stub for now
 	else {
 		
 		require LabZero::GlogLite;
@@ -335,6 +329,27 @@ sub load {
 				$tmojo_cache{$path} = LabZero::Tmojo->new(template_dir => $path);
 			}
 			return $tmojo_cache{$path};
+		});
+	
+	}
+
+
+	#####################
+	### MONGO FACTORY ###
+	#####################
+	
+	# Implement a singleton cache for a mongoDB connection
+		
+	{
+
+		my $mongo_obj;
+		
+		$this_context->define('mongo', sub {
+			if (not $mongo_obj) {
+				require MongoDB;
+				$mongo_obj = MongoDB::MongoClient->new();
+			}
+			return $mongo_obj;
 		});
 	
 	}
