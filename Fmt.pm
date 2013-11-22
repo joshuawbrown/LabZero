@@ -21,7 +21,7 @@ use strict;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw(
-	fmt_comma fmt_comma_zero
+	fmt_comma fmt_comma_zero fmt_elapsed
 );
 
 
@@ -44,4 +44,57 @@ sub fmt_comma_zero {
 	if ($result == 0) { return $placeholder; }
 	return $result;
 
+}
+
+my %units = (
+	yrs => 31449600,
+	wks => 604800,
+	days => 86400,
+	hrs => 3600,
+	min => 60,
+);
+
+my %long_units = (
+	yrs => 'years',
+	wks => 'weeks',
+	days => 'days',
+	hrs => 'hours',
+	min => 'minutes',
+);
+
+sub fmt_elapsed {
+	
+	# USAGE: print seconds_to_string($elapsed);
+	
+	my ($elapsed, $long) = @_;
+	
+	# First, decide the units
+	
+	my $mult = 1;
+	my $unit = 'sec';
+	
+	foreach my $x (sort {$units{$b} <=> $units{$a}} keys %units) {
+		print "> $x\n";
+		if ($elapsed > $units{$x}) {
+			$unit = $x;
+			if ($long) { $unit = $long_units{$unit}; }
+			$mult = $units{$x};
+			last;
+		}
+	}
+
+	my $total = $elapsed / $mult;
+	my $int = int($total);
+	my $fraction = $total - $int;
+	my $output;
+
+	if ($unit eq 'days')  { $output = "$int $unit"; }
+	elsif ($fraction > 0.75) { $int +=1; $output = "Almost $int $unit"; }
+	elsif ($fraction > 0.25) { $output = "Over $int $unit"; }
+	else { $output = "$int $unit"; }
+	
+	if ($int == 1) { $output =~ s/s$//; }
+
+	return $output;
+	
 }
