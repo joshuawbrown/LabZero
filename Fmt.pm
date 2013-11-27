@@ -74,7 +74,6 @@ sub fmt_elapsed {
 	my $unit = 'sec';
 	
 	foreach my $x (sort {$units{$b} <=> $units{$a}} keys %units) {
-		print "> $x\n";
 		if ($elapsed > $units{$x}) {
 			$unit = $x;
 			if ($long) { $unit = $long_units{$unit}; }
