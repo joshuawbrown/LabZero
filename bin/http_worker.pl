@@ -39,6 +39,8 @@ Valid Commands:
   worker_id=X (0-255, default 1)
   dev_mode=X (1 or 0, default 0)
   max_requests=X (1 to MAXINT, default 10000)
+  silent=1
+  
 ";
 
 my %commands;
@@ -248,7 +250,9 @@ my $last_mark = time();
 			if ($commands{dev_mode} or $notation) { logger("$status_code $request_string $encoded_reply$notation"); }
 			
 			# Success - Standard logging
-			else { logger("$status_code $request_string"); }
+			elsif (not $commands{silent}) { 
+				logger("$status_code $request_string");
+			}
 			
 			# Send a msglite reply
 			$msglite->send($encoded_reply, 10, $msglite_message->reply_addr);
@@ -374,7 +378,6 @@ sub get_http_body {
 		$self->{http_body_retrieved} = 1;
 	}
 	
-	# print "^ ", length($self->{http_body}), "\n";
 	return $self->{http_body};
 
 }
