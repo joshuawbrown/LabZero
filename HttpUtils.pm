@@ -104,27 +104,30 @@ sub safe_html {
 sub _safe_entities {
 
 	my $type = ref($_[0]);
-	
+	my $depth = 0 + $_[1];
+	if ($depth > 10) { fail("DEBUG HINT - Recursive depth exceeded 10 calls - TERMINATING"); }
+
 	# Modify scalars
 	if ($type eq '') {
-		my $encoded = encode_entities($_[0]);
-		if ($encoded ne $_[0]) { $_[0] = $encoded; flog("modified $_[0]"); }
+				my $encoded = encode_entities($_[0]);
+				if ($encoded ne $_[0]) { $_[0] = $encoded; flog("modified $_[0] at lv $depth"); }
 	}
 
 	# Iterate over arrays
 	elsif ($type eq 'ARRAY') {
-		map { _safe_entities($_) } @{ $_[0] };
+				map { _safe_entities($_, $depth + 1) } @{ $_[0] };
 	}
-	
+
 	# Iterate over hashes
 	elsif ($type eq 'HASH') {
-		map { _safe_entities($_[0]{$_}) } keys %{ $_[0] };
+				map { _safe_entities($_[0]{$_}, $depth + 1) } keys %{ $_[0] };
 	}
-	
+
 	# ignore everything else (objects, etc)
 	else { return; }
 
 }
+
 
 sub decode_entities { HTML::Entities::decode_entities(@_); }
 
