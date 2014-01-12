@@ -53,13 +53,25 @@ sub new:method {
 	unless ($params{db_name})     { fail("required: db_name"); }
 	unless ($params{expired_url}) { fail("required: expired_url"); }
 	unless ($params{timeout})     { $params{timeout} = 60*60*72; }
-	
-	$params{cookie_name} = 'labzero.' . $params{db_name} . '.auth';
-	
+		
 	# connect to the server
 	return bless \%params, $class;
 	
 }
+
+# Make a host specific cookie name for auth and return it
+
+sub _get_cookie_name {
+
+	my ($self, $request) = @_;
+	
+	my $hostname = $request->{browser_request}{headers}{'X-Real-Host'} || $request->{browser_request}{headers}{'Host'};
+	$self->{cookie_name} = 'labzero.' . $self->{db_name} . '.' . $hostname . '.auth';
+	
+	return $self->{cookie_name};
+
+}
+
 
 
 ###########################
@@ -77,6 +89,7 @@ sub auth_verify_token {
 	unless ($request) { fail("auth_verify_token requires the request object"); }
 
 	my $http_req = $request->{browser_request};
+	my $cookie_name = $self->{cookie_name} || $self->_get_cookie_name($request);
 
 	# Check for https and redirect if HTTPS is required
 	if ($self->{require_https}) {
@@ -90,8 +103,11 @@ sub auth_verify_token {
 	}
 
 	my $cookie_header = $http_req->{headers}{Cookie};
+	flog($http_req);
 	my %cookies = http_parse_cookies($cookie_header);
-	my $auth_token = $cookies{$self->{cookie_name}};
+	flog(\%cookies);
+	
+	my $auth_token = $cookies{$cookie_name};
 
 	# if we found a cookie, return the token
 	if ($auth_token) {
@@ -118,7 +134,7 @@ sub auth_verify_token {
 	
 	if ($self->{require_https}) {
 		$cookie = http_cookie(
-			name => $self->{cookie_name},
+			name => $cookie_name,
 			value => $token,
 			domain => $hostname,
 			secure => 1,
@@ -128,7 +144,7 @@ sub auth_verify_token {
 	}
 	else {
 		$cookie = http_cookie(
-			name => $self->{cookie_name},
+			name => $cookie_name,
 			value => $token,
 			domain => $hostname,
 			expires => time() + $days_30
@@ -174,12 +190,13 @@ sub auth_verify_user {
 	# Look up the token and see if it is validly logged in
 	my $session_rec = $self->{couch}->get_doc($self->{db_name} => $token, 1);
 	
-	# if there is no record for the token, we need to delete that cookie to get out of a broken state!
+	# if there is no record for the token, we need to delete that bad cookie to get out of a broken state!
 	if (not $session_rec) {
 		flog("> missing token record $token");
 		my $html = redir_html($self->{expired_url});
 		my $hostname = $request->{browser_request}{headers}{'X-Real-Host'};
-		my $cookie = http_cookie(name => $self->{cookie_name}, value => '', domain => $hostname);
+		my $cookie_name = $self->{cookie_name} || $self->_get_cookie_name($request);
+		my $cookie = http_cookie(name => $cookie_name, value => '', domain => $hostname);
 		$request->http_header('Set-Cookie' => $cookie);
 		$request->http_ok($html);
 	}
@@ -252,7 +269,8 @@ sub auth_start_session {
 		flog("> missing token record $token");
 		my $html = redir_html($self->{expired_url});
 		my $hostname = $request->{browser_request}{headers}{'X-Real-Host'};
-		my $cookie = http_cookie(name => $self->{cookie_name}, value => '', domain => $hostname);
+		my $cookie_name = $self->{cookie_name} || $self->_get_cookie_name($request);
+		my $cookie = http_cookie(name => $cookie_name, value => '', domain => $hostname);
 		$request->http_header('Set-Cookie' => $cookie);
 		$request->http_ok($html);
 	}
@@ -287,7 +305,8 @@ sub auth_end_session {
 	# Check for a token
 	my $cookie_header = $request->{browser_request}{headers}{Cookie};
 	my %cookies = http_parse_cookies($cookie_header);
-	my $token = $cookies{$self->{cookie_name}};
+	my $cookie_name = $self->{cookie_name} || $self->_get_cookie_name($request);
+	my $token = $cookies{$cookie_name};
 	if (not $token) { return; } # no token, we're done here
 	
 	# Look up the couch record in the DB
