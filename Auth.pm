@@ -103,9 +103,7 @@ sub auth_verify_token {
 	}
 
 	my $cookie_header = $http_req->{headers}{Cookie};
-	flog($http_req);
 	my %cookies = http_parse_cookies($cookie_header);
-	flog(\%cookies);
 	
 	my $auth_token = $cookies{$cookie_name};
 
