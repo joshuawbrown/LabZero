@@ -55,6 +55,7 @@ my %units = (
 );
 
 my %long_units = (
+	sec => 'seconds',
 	yrs => 'years',
 	wks => 'weeks',
 	days => 'days',
@@ -86,8 +87,8 @@ sub fmt_elapsed {
 	my $int = int($total);
 	my $fraction = $total - $int;
 	my $output;
-
-	if ($unit eq 'days')  { $output = "$int $unit"; }
+	
+	if ($unit =~ m/(sec|min)/) { $output = "$int $unit"; }
 	elsif ($fraction > 0.75) { $int +=1; $output = "Almost $int $unit"; }
 	elsif ($fraction > 0.25) { $output = "Over $int $unit"; }
 	else { $output = "$int $unit"; }
