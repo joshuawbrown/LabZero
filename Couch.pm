@@ -24,7 +24,6 @@ use HTTP::Request;
 use JSON;
 
 use LabZero::Fail;
-use Time::HiRes;
 use POSIX;
 
 my $base62 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
