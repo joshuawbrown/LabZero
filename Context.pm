@@ -347,7 +347,7 @@ sub load {
 		$this_context->define('mongo', sub {
 			if (not $mongo_obj) {
 				require MongoDB;
-				$mongo_obj = MongoDB::MongoClient->new();
+				$mongo_obj = MongoDB::MongoClient->new( timeout => 150000);
 			}
 			return $mongo_obj;
 		});
