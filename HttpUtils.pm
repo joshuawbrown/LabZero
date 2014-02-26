@@ -110,7 +110,7 @@ sub _safe_entities {
 	# Modify scalars
 	if ($type eq '') {
 				my $encoded = encode_entities($_[0]);
-				if ($encoded ne $_[0]) { $_[0] = $encoded; flog("modified $_[0] at lv $depth"); }
+				if ($encoded ne $_[0]) { $_[0] = $encoded; }
 	}
 
 	# Iterate over arrays
