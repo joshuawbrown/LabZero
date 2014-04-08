@@ -171,8 +171,14 @@ sub get_doc:method {
 
 	_check_db($db);
 
+	my $start_time = Time::HiRes::time();
 	my $doc = $self->couch_request(GET => $db . '/' . $id);	
 	my $response = decode_json($doc);
+	my $elapsed = Time::HiRes::time() - $start_time;
+	if ($elapsed > 2) {
+		$elapsed = sprintf('%0.2f', $elapsed);
+		flog("Long couch doc load time for doc [$id] $elapsed sec");
+	}
 	
 	# return doc
 	if ($response->{'_id'} eq $id) { return $response; } # if we got the doc, return it
@@ -201,7 +207,14 @@ sub get_docs:method {
 
 	my $id_list = { 'keys' => $ids };
 	my $json = encode_json($id_list);
+	
+	my $start_time = Time::HiRes::time();
 	my $result = $self->couch_request(POST => "$db/_all_docs?include_docs=true", $json);
+	my $elapsed = Time::HiRes::time() - $start_time;
+	if ($elapsed > 2) {
+		$elapsed = sprintf('%0.2f', $elapsed);
+		flog("Long couch doc load time for docs [@$ids] $elapsed sec");
+	}	
 
 	my $response = decode_json($result);
 

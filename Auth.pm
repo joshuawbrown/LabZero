@@ -68,6 +68,8 @@ sub _get_cookie_name {
 	my $hostname = $request->{browser_request}{headers}{'X-Real-Host'} || $request->{browser_request}{headers}{'Host'};
 	$self->{cookie_name} = 'labzero.' . $self->{db_name} . '.' . $hostname . '.auth';
 	
+	flog("Created name $self->{cookie_name}");
+	
 	return $self->{cookie_name};
 
 }
