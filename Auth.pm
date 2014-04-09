@@ -35,6 +35,8 @@ my $days_30 = 60*60*24*30;
 	db_name       => 'some_name',
 	expired_url   => '/expired.html',
 	
+	
+	
 	require_https => 1,
 	timeout       => 60*60*72,
 )
@@ -67,14 +69,10 @@ sub _get_cookie_name {
 	
 	my $hostname = $request->{browser_request}{headers}{'X-Real-Host'} || $request->{browser_request}{headers}{'Host'};
 	$self->{cookie_name} = 'labzero.' . $self->{db_name} . '.' . $hostname . '.auth';
-	
-	flog("Created name $self->{cookie_name}");
-	
+		
 	return $self->{cookie_name};
 
 }
-
-
 
 ###########################
 #### auth_verify_token ####
@@ -89,20 +87,40 @@ sub auth_verify_token {
 
 	my ($self, $request) = @_;
 	unless ($request) { fail("auth_verify_token requires the request object"); }
-
+	
 	my $http_req = $request->{browser_request};
-	my $cookie_name = $self->{cookie_name} || $self->_get_cookie_name($request);
+	
+	# Verify hostname if needed
+	if ($self->{require_domain}) {
+		my $hostname = lc($http_req->{headers}{'X-Real-Host'} || $request->{headers}{'Host'});
+		# if required domain doesn't match, redirect to the required domain
+		unless (lc($hostname) eq lc($self->{require_domain})) {
+			my $redirect_url;
+			if ($self->{require_https} or $http_req->{headers}{'X-Https'}) {
+				$redirect_url = 'https://' . $self->{require_domain};
+			} else {
+				$redirect_url = 'http://' . $self->{require_domain};
+			}
+			flog("* Redirecting from $hostname to $redirect_url");
+			$request->http_redirect($redirect_url);
+		}
+	}
 
 	# Check for https and redirect if HTTPS is required
 	if ($self->{require_https}) {
 		if ($http_req->{headers}{'X-Https'} != 1) {
-			my $secure_url = 'https://' . $http_req->{headers}{'X-Real-Host'} . $http_req->{url};
+			my $hostname = lc($http_req->{headers}{'X-Real-Host'} || $request->{headers}{'Host'});
+			my $secure_url = 'https://' . $hostname;
 			if ($http_req->{query_string}) {
 				$secure_url .=  '?' . $http_req->{query_string};
 			}
+			flog("* Redirecting from $hostname to $secure_url");
 			$request->http_redirect($secure_url);
 		}	
 	}
+	
+	# Cookie Request
+	my $cookie_name = $self->{cookie_name} || $self->_get_cookie_name($request);
 
 	my $cookie_header = $http_req->{headers}{Cookie};
 	my %cookies = http_parse_cookies($cookie_header);
