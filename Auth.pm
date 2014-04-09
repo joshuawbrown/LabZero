@@ -55,9 +55,12 @@ sub new:method {
 	unless ($params{db_name})     { fail("required: db_name"); }
 	unless ($params{expired_url}) { fail("required: expired_url"); }
 	unless ($params{timeout})     { $params{timeout} = 60*60*72; }
-		
-	# connect to the server
+	
+	flog(\%params);
+	
 	return bless \%params, $class;
+	
+	
 	
 }
 
@@ -101,7 +104,6 @@ sub auth_verify_token {
 			} else {
 				$redirect_url = 'http://' . $self->{require_domain};
 			}
-			flog("* Redirecting from $hostname to $redirect_url");
 			$request->http_redirect($redirect_url);
 		}
 	}
@@ -114,7 +116,7 @@ sub auth_verify_token {
 			if ($http_req->{query_string}) {
 				$secure_url .=  '?' . $http_req->{query_string};
 			}
-			flog("* Redirecting from $hostname to $secure_url");
+			flog("* C - Redirecting from $hostname to $secure_url");
 			$request->http_redirect($secure_url);
 		}	
 	}

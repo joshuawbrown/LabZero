@@ -265,11 +265,8 @@ sub load {
 				if (not $auth_object) {
 					my $couch = $this_context->couchdb();
 					my %params = (
-						couch         => $couch,
-						db_name       => $config->{auth}{db_name},
-						app_name      => $config->{auth}{app_name},
-						expired_url   => $config->{auth}{expired_url},
-		
+						couch => $couch,
+						%{$config->{auth}},
 					);
 					if ($config->{auth}{timeout})       { $params{timeout} = $config->{auth}{timeout}; }
 					if ($config->{auth}{require_https}) { $params{require_https} = $config->{auth}{require_https}; }
