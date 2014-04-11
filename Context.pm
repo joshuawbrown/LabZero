@@ -348,11 +348,9 @@ sub load {
 				
 				if ($config->{mongo}) {
 					$mongo_obj = MongoDB::MongoClient->new(%{$config->{mongo}});
-					flog('Mongo Custom');
 				}
 				else {
 					$mongo_obj = MongoDB::MongoClient->new( timeout => 150000, query_timeout => 150000);
-					flog('Mongo Default');
 				}
 			}
 			return $mongo_obj;
