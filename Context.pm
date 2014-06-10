@@ -350,14 +350,37 @@ sub load {
 					$mongo_obj = MongoDB::MongoClient->new(%{$config->{mongo}});
 				}
 				else {
-					$mongo_obj = MongoDB::MongoClient->new( timeout => 150000, query_timeout => 150000);
+					$mongo_obj = MongoDB::MongoClient->new( timeout => 15000000, query_timeout => 15000000);
 				}
 			}
 			return $mongo_obj;
 		});
 	
 	}
+
+	# Add an additional mongo connection object
+
+	{
+
+		my $mongo_obj;
+		
+		$this_context->define('mongo2', sub {
+			if (not $mongo_obj) {
+			
+				require MongoDB;
+				
+				if ($config->{mongo2}) {
+					$mongo_obj = MongoDB::MongoClient->new(%{$config->{mongo2}});
+				}
+				else {
+					$mongo_obj = MongoDB::MongoClient->new( timeout => 15000000, query_timeout => 15000000);
+				}
+			}
+			return $mongo_obj;
+		});
 	
+	}
+
 	#################################################
 	### GENERIC APP CONFIG KEYS WITH NICE FAILURE ###
 	#################################################
