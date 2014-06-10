@@ -25,10 +25,7 @@ sub test_mongo {
   my $c = $db->get_collection('test');
   my $result = $c->count();
   print "Server $label> $result\n";
-
-	my $result = $c->run_command({ dbStats => 1 })->{db};
-	
-	flog($result);
+	flog($mong);
 
 
 }
