@@ -14,8 +14,8 @@ use DataBank::Accounts;
 my $days_1 = 86400;
 
 my $context = LabZero::Context->load();
-test_mongo($context->mongo);
-test_mongo($context->mongo2);
+test_mongo($context->mongo, 'mongo');
+test_mongo($context->mongo2, 'mongo2');
 
 sub test_mongo {
 

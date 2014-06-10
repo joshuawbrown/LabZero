@@ -335,6 +335,8 @@ sub load {
 	### MONGO FACTORY ###
 	#####################
 	
+	my $sane_timeout = 1000*60*60*4; # 4 Hours!
+	
 	# Implement a singleton cache for a mongoDB connection
 		
 	{
@@ -347,10 +349,10 @@ sub load {
 				require MongoDB;
 				
 				if ($config->{mongo}) {
-					$mongo_obj = MongoDB::MongoClient->new(%{$config->{mongo}});
+					$mongo_obj = MongoDB::MongoClient->new(timeout => $sane_timeout, query_timeout => $sane_timeout, %{$config->{mongo}});
 				}
 				else {
-					$mongo_obj = MongoDB::MongoClient->new( timeout => 15000000, query_timeout => 15000000);
+					$mongo_obj = MongoDB::MongoClient->new( timeout => $sane_timeout, query_timeout => $sane_timeout);
 				}
 			}
 			return $mongo_obj;
@@ -370,10 +372,10 @@ sub load {
 				require MongoDB;
 				
 				if ($config->{mongo2}) {
-					$mongo_obj = MongoDB::MongoClient->new(%{$config->{mongo2}});
+					$mongo_obj = MongoDB::MongoClient->new(timeout => $sane_timeout, query_timeout => $sane_timeout, %{$config->{mongo2}});
 				}
 				else {
-					$mongo_obj = MongoDB::MongoClient->new( timeout => 15000000, query_timeout => 15000000);
+					$mongo_obj = MongoDB::MongoClient->new( timeout => $sane_timeout, query_timeout => $sane_timeout );
 				}
 			}
 			return $mongo_obj;
