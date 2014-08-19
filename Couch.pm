@@ -502,6 +502,7 @@ sub couch_request:method {
 			agent => 'LabZero::Couch',
 			keep_alive => 1,
 		);
+		$self->{lwp_agent}->timeout(0);
 		
 	}
 	
