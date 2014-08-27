@@ -26,8 +26,7 @@ use JSON;
 use LabZero::Fail;
 use POSIX;
 
-my $base62 = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-my $epoch = 5333333333;
+my $base62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 use strict;
 use base qw(Exporter);
@@ -58,14 +57,13 @@ sub new:method {
 	
 	my %self = (
 		
-		couch_url  => $couch_url,
-		machine_id => base62_encode(0),
-		process_id => base62_encode($$,3),
-		timer_id   => '',
-		lwp_agent  => undef,
+		couch_url   => $couch_url,
+		machine_id  => 'c',
+		process_id  => base62_encode($$,3),
+		counter     => 0,
+		lwp_agent   => undef,
 	);
 	
-	if ($params{machine_id} > 61) { fail("Invalid machine ID $params{machine_id} (Range 0-61)"); }
 	if ($params{machine_id}) { $self{machine_id} = base62_encode($params{machine_id}, 1); }
 	
 	# connect to the server
@@ -281,7 +279,7 @@ sub get_view:method {
 
 	my ($self, $view) = @_;
 
-	unless($view) { fail("get_doc requires a view", "view=$view"); }
+	unless($view) { fail("get_view requires a view", "view=$view"); }
 
 	my $doc = $self->couch_request(GET => $view);	
 	my $response = decode_json($doc);
@@ -293,7 +291,7 @@ sub get_view:method {
 	
 	# Return all the response rows if no docs
 	if (not $response->{rows}[0]{doc}) {
-		my @docs = map { { '_key' => $_->{key}, '_value' => $_->{value}, } } (@{ $response->{rows} });
+		my @docs = map { { '_key' => $_->{key}, '_value' => $_->{value}, '_id' => $_->{id}, } } (@{ $response->{rows} });
 		return \@docs;
 	}
 
@@ -473,10 +471,11 @@ sub next_id:method {
 
 	my ($self) = @_;
 	
-	if ($self->{timer_id}) { $self->{timer_id} += 1; }
-	else { $self->{timer_id} = POSIX::floor(Time::HiRes::time() * 4) - $epoch; }
-		
-	my $next_id = $self->{machine_id} . $self->{process_id} . base62_encode($self->{timer_id}, 8);
+	my $time = POSIX::floor(Time::HiRes::time() * 1000);
+	my $next_id = $self->{machine_id} . base62_encode($time, 8) . $self->{process_id} . base62_encode($self->{counter}, 2);
+	
+	$self->{counter} += 1;
+	if ($self->{counter} >= 3844) { $self->{counter} = 0; }
 	
 	return $next_id;
 	
@@ -502,7 +501,6 @@ sub couch_request:method {
 			agent => 'LabZero::Couch',
 			keep_alive => 1,
 		);
-		$self->{lwp_agent}->timeout(0);
 		
 	}
 	
@@ -556,4 +554,5 @@ sub base62_encode {
 }
 
 1; # This is a lib, return 1
+
 
