@@ -13,6 +13,7 @@ use strict;
 use JSON;
 use Data::Dumper;
 use POSIX qw(strftime);
+use Time::HiRes;
 
 # use Devel::Leak;
 
@@ -144,6 +145,8 @@ my $last_mark = time();
 		# REQUIRE THE HANDLER PACKAGE IN TIS OWN EVAL BUT INSIDE THE LOOP, SO THAT THE
 		# DAEMON DIES AND LOGS THE ERROR BUT DOESN'T MAKE UPSTART GIVE UP ON IT IF IT'S
 		# HOPELESSLY BUSTED!
+				
+		my $start_request = Time::HiRes::time();
 		
 		if (not $handler_loaded) { # only try this once
 		
@@ -241,17 +244,22 @@ my $last_mark = time();
 				$headers = ['Content-Type' => 'text/html'];
 				$body = $error_handler->(500, 'No valid HTTP header returned! (W104)', $request_string);
 			}
-	
+			
+			my $elapsed_request = sprintf("%0.2f", Time::HiRes::time() - $start_request);
+			$elapsed_request .= 's';
+			
 			### Send the output back to nginx
 			$reply = ["$status_code", $headers];
 			$encoded_reply = encode_json($reply);
 			
 			# Success - Dev mode logging
-			if ($commands{dev_mode} or $notation) { logger("$status_code $request_string $encoded_reply$notation"); }
+			if ($commands{dev_mode} or $notation) {
+				logger("$status_code $request_string $encoded_reply$notation ($elapsed_request)");
+			}
 			
 			# Success - Standard logging
 			elsif (not $commands{silent}) { 
-				logger("$status_code $request_string");
+				logger("$status_code $request_string ($elapsed_request)");
 			}
 			
 			# Send a msglite reply
