@@ -65,6 +65,8 @@ sub new:method {
 	);
 	
 	if ($params{machine_id}) { $self{machine_id} = base62_encode($params{machine_id}, 1); }
+	if ($params{debug}) { $self{debug_threshold} = $params{debug}; }
+	else { $self{debug_threshold} = 600; }
 	
 	# connect to the server
 
@@ -173,10 +175,6 @@ sub get_doc:method {
 	my $doc = $self->couch_request(GET => $db . '/' . $id);	
 	my $response = decode_json($doc);
 	my $elapsed = Time::HiRes::time() - $start_time;
-	if ($elapsed > 2) {
-		$elapsed = sprintf('%0.2f', $elapsed);
-		flog("Long couch doc load time for doc [$id] $elapsed sec");
-	}
 	
 	# return doc
 	if ($response->{'_id'} eq $id) { return $response; } # if we got the doc, return it
@@ -496,12 +494,10 @@ sub couch_request:method {
 	my $req;
 	
 	unless ($self->{lwp_agent}) {
-		my %opts = ( keep_alive => 10 );
 		$self->{lwp_agent} = LWP::UserAgent->new(
 			agent => 'LabZero::Couch',
-			keep_alive => 1,
+			keep_alive => 10,
 		);
-		
 	}
 	
 	if (defined $post_content) {
@@ -513,7 +509,17 @@ sub couch_request:method {
 		$req = HTTP::Request->new( $method, $full_uri );
 	}
 	
+	my $start_request = Time::HiRes::time();
 	my $response = $self->{lwp_agent}->request($req);
+	my $elapsed_request = Time::HiRes::time() - $start_request;
+	$self->{last_elapsed} = $elapsed_request;
+	if ($self->{last_elapsed} > $self->{debug_threshold}) {
+		fret("SLOW COUCHDB QUERY", {
+			'elapsed' => sprintf("%0.2f", $elapsed_request),
+			'uri'     => $full_uri,
+			'method'  => $method,
+		});
+	}
 	
 	if ($response->is_success)       { return $response->content; }
 	elsif ($response->code() == 404) { return $response->content(); } # Missing doc

@@ -225,16 +225,18 @@ sub load {
 				if (! $config->{couchdb}{url}) { fail("Fatal Error: Missing couchdb / url setting"); }
 				unless ($couch_object)  { 
 
-
+					my $debug;
+					if ($config->{couchdb}{debug}) { $debug = $config->{couchdb}{debug}; }
+					
 					if($config->{couchdb}{username} ne ""){
 						my $turl = $config->{couchdb}{url};
 
 						$turl =~ s/http:\/\//http:\/\/$config->{couchdb}{username}:$config->{couchdb}{password}\@/;
 
-						$couch_object = LabZero::Couch->new($turl);
+						$couch_object = LabZero::Couch->new($turl, debug => $debug);
 					}
 					else{ 
-						$couch_object = LabZero::Couch->new($config->{couchdb}{url}); 
+						$couch_object = LabZero::Couch->new($config->{couchdb}{url}, debug => $debug); 
 					}
 
 				}
